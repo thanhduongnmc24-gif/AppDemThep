@@ -21,14 +21,14 @@ type HistoryItem = {
 };
 
 export default function DemThepScreen() {
-  const { colors, theme } = useTheme(); 
+  const { colors } = useTheme(); 
   const [image, setImage] = useState<string | null>(null);
-  const [resultImage, setResultImage] = useState<string | null>(null); // Dùng làm ảnh mặc định để lưu lịch sử
+  const [resultImage, setResultImage] = useState<string | null>(null);
   const [steelCount, setSteelCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  // [MỚI] Biến lưu 3 phiên bản ảnh và trạng thái công tắc
+  // 3 phiên bản ảnh cho 3 công tắc
   const [resultImages, setResultImages] = useState<{v1: string | null, v2: string | null, v3: string | null}>({ v1: null, v2: null, v3: null });
   const [currentMode, setCurrentMode] = useState<number>(1);
 
@@ -118,8 +118,6 @@ export default function DemThepScreen() {
       setImage(selectedUri);
       setResultImage(null);
       setSteelCount(null);
-      
-      // [MỚI] Reset lại các ảnh và công tắc khi chọn ảnh mới
       setResultImages({ v1: null, v2: null, v3: null });
       setCurrentMode(1);
 
@@ -133,10 +131,13 @@ export default function DemThepScreen() {
       const activeServer = await AsyncStorage.getItem('ACTIVE_SERVER') || 'colab';
       let currentServerUrl = '';
 
+      // [Suy luận] Bổ sung thêm luồng đọc link của Kaggle
       if (activeServer === 'colab') {
         currentServerUrl = await AsyncStorage.getItem('COLAB_URL') || '';
-      } else {
+      } else if (activeServer === 'hf') {
         currentServerUrl = await AsyncStorage.getItem('HF_URL') || '';
+      } else if (activeServer === 'kaggle') {
+        currentServerUrl = await AsyncStorage.getItem('KAGGLE_URL') || '';
       }
 
       if (!currentServerUrl || currentServerUrl.trim() === '') {
@@ -174,14 +175,12 @@ export default function DemThepScreen() {
       if (data.count !== undefined) {
         setSteelCount(data.count);
         
-        // [MỚI] Lấy 3 phiên bản ảnh từ server
         const uri1 = data.image_v1 ? `data:image/jpeg;base64,${data.image_v1}` : null;
         const uri2 = data.image_v2 ? `data:image/jpeg;base64,${data.image_v2}` : null;
         const uri3 = data.image_v3 ? `data:image/jpeg;base64,${data.image_v3}` : null;
         
         setResultImages({ v1: uri1, v2: uri2, v3: uri3 });
         
-        // Vẫn set resultImage bằng v1 để dự phòng và dùng chung cho lịch sử
         const fallbackUri = uri1 || (data.image_base64 ? `data:image/jpeg;base64,${data.image_base64}` : undefined);
         if (fallbackUri) setResultImage(fallbackUri);
         
@@ -203,12 +202,11 @@ export default function DemThepScreen() {
     }
   };
 
-  // [MỚI] Hàm quyết định hiển thị ảnh nào dựa trên công tắc
   const getDisplayImage = () => {
     if (currentMode === 1 && resultImages.v1) return resultImages.v1;
     if (currentMode === 2 && resultImages.v2) return resultImages.v2;
     if (currentMode === 3 && resultImages.v3) return resultImages.v3;
-    return resultImage || image; // Fallback
+    return resultImage || image;
   };
 
   const bgColors = [colors.bg, colors.bg] as [string, string, ...string[]];
@@ -232,28 +230,20 @@ export default function DemThepScreen() {
               </View>
             ) : resultImage || image ? (
               <>
-                {/* [ĐÃ SỬA] Dùng hàm getDisplayImage() để hiển thị ảnh động */}
-                {/* Thẻ ScrollView bọc ngoài để hỗ trợ zoom mượt mà bằng 2 ngón tay trên iOS */}
-{/* SỬA LẠI CỤM NÀY: Bọc ScrollView quanh thẻ Image */}
-<ScrollView
-  // [TUYỆT CHIÊU] Gắn key bằng chính chuỗi ảnh kết quả v1. 
-  // Mỗi khi AI đếm xong trả kết quả mới, cụm này sẽ bị "đập đi xây lại", ép nó reset zoom và đưa ảnh về chính giữa.
-  key={resultImages.v1 ? 'result_loaded' : 'waiting_or_original'} 
-  maximumZoomScale={5} 
-  minimumZoomScale={1} 
-  showsHorizontalScrollIndicator={false}
-  showsVerticalScrollIndicator={false}
-  centerContent={true}
-  style={{ width: '100%', height: '100%' }}
-  contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
->
-  <Image 
-    source={{ uri: getDisplayImage()! }} 
-    // Trả lại style gốc của anh hai, vứt cái minWidth/minHeight đi
-    style={styles.previewImage} 
-    resizeMode="contain" 
-  />
-</ScrollView>
+                {/* [ĐÃ SỬA LỖI TỤT ẢNH]: Gắn key biến đổi để ép ScrollView nhả zoom, trả về căn giữa tuyệt đối */}
+                <ScrollView
+                  key={image! + (steelCount !== null ? '_done' : '_raw')}
+                  maximumZoomScale={5} 
+                  minimumZoomScale={1} 
+                  showsHorizontalScrollIndicator={false}
+                  showsVerticalScrollIndicator={false}
+                  centerContent={true}
+                  style={{ width: '100%', height: '100%' }}
+                  contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <Image source={{ uri: getDisplayImage()! }} style={styles.previewImage} resizeMode="contain" />
+                </ScrollView>
+
                 {steelCount !== null && (
                   <View style={[styles.resultBadge, { backgroundColor: colors.primary }]}>
                      <Text style={styles.resultText}>Tổng: {steelCount} cây</Text>
@@ -268,7 +258,7 @@ export default function DemThepScreen() {
             )}
           </View>
 
-          {/* [MỚI] BỘ 3 CÔNG TẮC ĐIỀU KHIỂN HIỂN THỊ */}
+          {/* BỘ 3 CÔNG TẮC ĐIỀU KHIỂN HIỂN THỊ */}
           {steelCount !== null && !isLoading && resultImages.v1 && (
             <View style={[styles.toggleContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <TouchableOpacity 
@@ -354,7 +344,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, marginTop: 4 },
   imageContainer: { 
     width: '100%', height: 300, borderRadius: 16, 
-    borderWidth: 1, overflow: 'hidden', marginBottom: 15, // Đã giảm marginBottom để nhường chỗ cho công tắc
+    borderWidth: 1, overflow: 'hidden', marginBottom: 15,
     justifyContent: 'center', alignItems: 'center'
   },
   previewImage: { width: '100%', height: '100%' },
@@ -367,8 +357,6 @@ const styles = StyleSheet.create({
     shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 5 
   },
   resultText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  
-  // [MỚI] CSS CHUYÊN DỤNG CHO BỘ CÔNG TẮC
   toggleContainer: {
     flexDirection: 'row',
     borderRadius: 12,
@@ -387,7 +375,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  
   buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   actionBtn: { 
     flex: 1, flexDirection: 'row', alignItems: 'center', 

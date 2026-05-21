@@ -12,10 +12,11 @@ export default function SettingsScreen() {
   const { theme, toggleTheme, colors } = useTheme();
   const { tabState, toggleTab } = useTab(); 
   
-  // State lưu trữ 2 đường link và lựa chọn hiện tại
+  // State lưu trữ 3 đường link và lựa chọn hiện tại
   const [colabUrl, setColabUrl] = useState('');
   const [hfUrl, setHfUrl] = useState('');
-  const [activeServer, setActiveServer] = useState<'colab' | 'hf'>('colab');
+  const [kaggleUrl, setKaggleUrl] = useState(''); // [MỚI] Thêm state cho Kaggle
+  const [activeServer, setActiveServer] = useState<'colab' | 'hf' | 'kaggle'>('colab'); // [SỬA] Thêm type kaggle
 
   useEffect(() => {
     loadSettings();
@@ -28,9 +29,13 @@ export default function SettingsScreen() {
       
       const hUrl = await AsyncStorage.getItem('HF_URL');
       if (hUrl) setHfUrl(hUrl);
+
+      // [MỚI] Load link Kaggle
+      const kUrl = await AsyncStorage.getItem('KAGGLE_URL');
+      if (kUrl) setKaggleUrl(kUrl);
       
       const active = await AsyncStorage.getItem('ACTIVE_SERVER');
-      if (active === 'colab' || active === 'hf') {
+      if (active === 'colab' || active === 'hf' || active === 'kaggle') {
         setActiveServer(active);
       }
     } catch (e) { 
@@ -49,8 +54,14 @@ export default function SettingsScreen() {
       await AsyncStorage.setItem('HF_URL', text);
   };
 
+  // [MỚI] Hàm lưu tự động cho Kaggle
+  const handleSaveKaggleUrl = async (text: string) => {
+      setKaggleUrl(text);
+      await AsyncStorage.setItem('KAGGLE_URL', text);
+  };
+
   // Hàm chuyển đổi máy chủ
-  const handleSelectServer = async (server: 'colab' | 'hf') => {
+  const handleSelectServer = async (server: 'colab' | 'hf' | 'kaggle') => {
       setActiveServer(server);
       await AsyncStorage.setItem('ACTIVE_SERVER', server);
   };
@@ -94,7 +105,8 @@ export default function SettingsScreen() {
             </View>
 
             {/* Hugging Face Row */}
-            <View style={[dynamicStyles.serverRow, { borderBottomWidth: 0 }]}>
+            {/* [SỬA] Bỏ borderBottomWidth: 0 ở đây đi để kẻ vạch ngăn cách với Kaggle */}
+            <View style={dynamicStyles.serverRow}>
               <TouchableOpacity onPress={() => handleSelectServer('hf')} style={{ paddingRight: 15 }}>
                 <Ionicons name={activeServer === 'hf' ? "radio-button-on" : "radio-button-off"} size={28} color={activeServer === 'hf' ? colors.primary : colors.subText} />
               </TouchableOpacity>
@@ -106,6 +118,23 @@ export default function SettingsScreen() {
                   placeholderTextColor={colors.subText} 
                   value={hfUrl} 
                   onChangeText={handleSaveHfUrl} 
+                />
+              </View>
+            </View>
+
+            {/* [MỚI] Kaggle Row */}
+            <View style={[dynamicStyles.serverRow, { borderBottomWidth: 0 }]}>
+              <TouchableOpacity onPress={() => handleSelectServer('kaggle')} style={{ paddingRight: 15 }}>
+                <Ionicons name={activeServer === 'kaggle' ? "radio-button-on" : "radio-button-off"} size={28} color={activeServer === 'kaggle' ? colors.primary : colors.subText} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: activeServer === 'kaggle' ? colors.primary : colors.text, fontWeight: 'bold' }}>Link Kaggle</Text>
+                <TextInput 
+                  style={[dynamicStyles.authInput, activeServer !== 'kaggle' && { opacity: 0.5 }]} 
+                  placeholder="https://...ngrok-free.dev/predict" 
+                  placeholderTextColor={colors.subText} 
+                  value={kaggleUrl} 
+                  onChangeText={handleSaveKaggleUrl} 
                 />
               </View>
             </View>
@@ -123,8 +152,6 @@ export default function SettingsScreen() {
               <Switch value={theme === 'dark'} onValueChange={toggleTheme} trackColor={{ false: "#E5E7EB", true: colors.primary }} thumbColor={"#fff"} style={{ transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }] }} />
             </View>
           </View>
-
-          
 
         </View>
       </ScrollView>
