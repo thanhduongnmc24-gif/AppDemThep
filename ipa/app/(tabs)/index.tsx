@@ -11,6 +11,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 
+// Anh hai nhớ cập nhật lại link Ngrok nếu khởi động lại Colab nhé
 const SERVER_URL = 'https://lakeesha-nonautonomous-catarina.ngrok-free.dev/predict'; 
 
 type HistoryItem = {
@@ -63,7 +64,6 @@ export default function DemThepScreen() {
 
   const clearHistory = async () => {
     if (Platform.OS === 'web') {
-        // [Suy luận] Trên web hàm Alert.alert thỉnh thoảng hoạt động không chuẩn, dùng window.confirm sẽ an toàn hơn
         if (window.confirm('Anh hai có chắc muốn xóa hết lịch sử đếm không?')) {
             await AsyncStorage.removeItem('DEMTHEP_HISTORY');
             setHistory([]);
@@ -131,7 +131,6 @@ export default function DemThepScreen() {
         method: 'POST',
         body: formData,
         headers: {
-          // Bỏ 'Content-Type' đi để trình duyệt tự xử lý boundary
           // Thêm cờ này để đi xuyên qua màn hình cảnh báo của Ngrok
           'ngrok-skip-browser-warning': 'true',
         },
@@ -149,6 +148,10 @@ export default function DemThepScreen() {
         if (processedUri) setResultImage(processedUri);
         
         saveToHistory(uri, processedUri, data.count);
+      } else if (data.error) {
+        // Bắt lỗi từ server Python gửi về
+        if (Platform.OS === 'web') alert(`Server AI báo lỗi: ${data.error}`);
+        else Alert.alert('Lỗi từ AI', data.error);
       } else {
         if (Platform.OS === 'web') alert('Không nhận được dữ liệu số lượng từ server.');
         else Alert.alert('Lỗi', 'Không nhận được dữ liệu số lượng từ server.');
@@ -200,7 +203,6 @@ export default function DemThepScreen() {
 
           {/* NÚT THAO TÁC */}
           <View style={styles.buttonRow}>
-            {/* Trên Web thì API Camera đôi khi không support tốt nên cứ để đó, ta test bằng Thư Viện là chính */}
             <TouchableOpacity 
               style={[styles.actionBtn, { backgroundColor: colors.primary }]} 
               onPress={() => pickImage(true)}
