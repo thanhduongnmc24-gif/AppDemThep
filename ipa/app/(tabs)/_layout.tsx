@@ -39,7 +39,7 @@ export default function TabLayout() {
         <Tabs.Screen 
           name="index" 
           options={{ 
-            title: 'Lịch', 
+            title: 'Đếm thép', 
             // [QUAN TRỌNG] Nếu tắt thì href là null (ẩn hoàn toàn)
             href: tabState.calendar ? undefined : null,
             tabBarIcon: ({ color }) => <Ionicons name="calendar" size={24} color={color} /> 
