@@ -234,8 +234,11 @@ export default function DemThepScreen() {
               <>
                 {/* [ĐÃ SỬA] Dùng hàm getDisplayImage() để hiển thị ảnh động */}
                 {/* Thẻ ScrollView bọc ngoài để hỗ trợ zoom mượt mà bằng 2 ngón tay trên iOS */}
+{/* SỬA LẠI CỤM NÀY: Bọc ScrollView quanh thẻ Image */}
 <ScrollView
-  key={image} // [TUYỆT CHIÊU] Ép ScrollView phải làm mới hoàn toàn (reset zoom, reset vị trí) khi chọn ảnh mới
+  // [TUYỆT CHIÊU] Gắn key bằng chính chuỗi ảnh kết quả v1. 
+  // Mỗi khi AI đếm xong trả kết quả mới, cụm này sẽ bị "đập đi xây lại", ép nó reset zoom và đưa ảnh về chính giữa.
+  key={resultImages.v1 ? 'result_loaded' : 'waiting_or_original'} 
   maximumZoomScale={5} 
   minimumZoomScale={1} 
   showsHorizontalScrollIndicator={false}
@@ -246,7 +249,8 @@ export default function DemThepScreen() {
 >
   <Image 
     source={{ uri: getDisplayImage()! }} 
-    style={[styles.previewImage, { width: '100%', height: '100%', minWidth: 350, minHeight: 300 }]} 
+    // Trả lại style gốc của anh hai, vứt cái minWidth/minHeight đi
+    style={styles.previewImage} 
     resizeMode="contain" 
   />
 </ScrollView>
