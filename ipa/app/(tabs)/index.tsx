@@ -29,12 +29,10 @@ export default function DemThepScreen() {
   const [steelCount, setSteelCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Tuyệt chiêu tối ưu: Khóa zoom cho đến khi ảnh thực sự sẵn sàng
-  const [isImageReady, setIsImageReady] = useState(false);
+  // Trạng thái chờ 1 giây theo đúng yêu cầu của anh hai
+  const [isPreparingFrame, setIsPreparingFrame] = useState(false);
   
   const [history, setHistory] = useState<HistoryItem[]>([]);
-
-  // Chìa khóa vạn năng tạo khung mới
   const [viewerKey, setViewerKey] = useState<string>(Date.now().toString());
 
   const [resultImages, setResultImages] = useState<{v1: string | null, v2: string | null, v3: string | null}>({ v1: null, v2: null, v3: null });
@@ -93,17 +91,48 @@ export default function DemThepScreen() {
     }
   };
 
+  // --- LOGIC XỬ LÝ NÚT CHỤP ẢNH / THƯ VIỆN BỊ DELAY 1 GIÂY ---
+  const handlePickImagePress = (useCamera: boolean) => {
+    // 1. Ẩn toàn bộ ảnh và zoom ngay lập tức
+    setImage(null);
+    setResultImage(null);
+    setSteelCount(null);
+    setResultImages({ v1: null, v2: null, v3: null });
+    
+    // 2. Bật màn hình chuẩn bị khung
+    setIsPreparingFrame(true);
+
+    // 3. Chờ đúng 1 giây (1000ms) rồi mới cho chọn ảnh
+    setTimeout(() => {
+      setIsPreparingFrame(false);
+      pickImage(useCamera);
+    }, 1000);
+  };
+
+  // --- LOGIC XỬ LÝ LỊCH SỬ CŨNG BỊ DELAY 1 GIÂY ĐỂ ĐỒNG BỘ ---
+  const handleHistoryPress = (item: HistoryItem) => {
+    setImage(null);
+    setResultImage(null);
+    setSteelCount(null);
+    setResultImages({ v1: null, v2: null, v3: null });
+    setIsPreparingFrame(true);
+
+    mainScrollRef.current?.scrollTo({ y: 0, animated: true });
+
+    setTimeout(() => {
+      setIsPreparingFrame(false);
+      viewHistoryItem(item);
+    }, 1000);
+  };
+
   const viewHistoryItem = (item: HistoryItem) => {
-    setIsImageReady(false); // Trói tay không cho zoom
     setImage(item.originalImage);
     setResultImage(item.processedImage || null);
     setSteelCount(item.count);
     
     setResultImages({ v1: item.processedImage || null, v2: null, v3: null });
     setCurrentMode(1);
-    
     setViewerKey(Date.now().toString());
-    mainScrollRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const pickImage = async (useCamera: boolean) => {
@@ -136,13 +165,7 @@ export default function DemThepScreen() {
         console.log("Lỗi ép cân ảnh:", e);
       }
 
-      setIsImageReady(false); // Trói tay zoom
       setImage(selectedUri);
-      setResultImage(null);
-      setSteelCount(null);
-      setResultImages({ v1: null, v2: null, v3: null });
-      setCurrentMode(1);
-      
       setViewerKey(Date.now().toString());
       uploadToServer(selectedUri);
     }
@@ -207,8 +230,6 @@ export default function DemThepScreen() {
         if (fallbackUri) setResultImage(fallbackUri);
         
         saveToHistory(uri, fallbackUri, data.count);
-        
-        setIsImageReady(false); // Trói tay zoom lúc chuyển qua ảnh đã xử lý
         setViewerKey(Date.now().toString());
 
       } else if (data.error) {
@@ -235,9 +256,7 @@ export default function DemThepScreen() {
     return resultImage || image;
   };
 
-  // Đổi mode cũng phải khóa zoom một chút để nó vẽ lại từ đầu
   const handleModeChange = (mode: number) => {
-    setIsImageReady(false);
     setCurrentMode(mode);
     setViewerKey(Date.now().toString());
   };
@@ -256,7 +275,12 @@ export default function DemThepScreen() {
 
           {/* KHU VỰC HIỂN THỊ ẢNH */}
           <View style={[styles.imageContainer, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            {isLoading ? (
+            {isPreparingFrame ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={{ color: colors.text, marginTop: 10 }}>Đang chuẩn bị khung mới...</Text>
+              </View>
+            ) : isLoading ? (
               <View style={styles.loadingBox}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={{ color: colors.text, marginTop: 10 }}>Đang nhờ AI đếm thử, chờ xíu...</Text>
@@ -264,25 +288,19 @@ export default function DemThepScreen() {
             ) : resultImage || image ? (
               <ScrollView
                 key={viewerKey} 
-                // CHỐT CHẶN: Chỉ mở zoom khi ảnh đã load xong 100%
-                maximumZoomScale={isImageReady ? 5 : 1} 
+                maximumZoomScale={5} 
                 minimumZoomScale={1} 
                 showsHorizontalScrollIndicator={false}
                 showsVerticalScrollIndicator={false}
                 centerContent={true}
-                contentOffset={{ x: 0, y: 0 }} 
                 style={{ width: '100%', height: '100%' }}
                 contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
               >
-                <View style={{ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                  <Image 
-                    source={{ uri: getDisplayImage()! }} 
-                    style={{ width: '100%', height: '100%' }} 
-                    resizeMode="contain" 
-                    // THẢ XÍCH ZOOM KHI ẢNH ĐÃ NẰM GỌN TRONG KHUNG
-                    onLoadEnd={() => setIsImageReady(true)}
-                  />
-                </View>
+                <Image 
+                  source={{ uri: getDisplayImage()! }} 
+                  style={{ width: '100%', height: '100%' }} 
+                  resizeMode="contain" 
+                />
               </ScrollView>
             ) : (
               <View style={styles.placeholderBox}>
@@ -293,7 +311,7 @@ export default function DemThepScreen() {
           </View>
 
           {/* KẾT QUẢ ĐẾM THÉP NẰM NGOÀI KHUNG ẢNH */}
-          {steelCount !== null && (
+          {steelCount !== null && !isPreparingFrame && (
             <View style={styles.totalContainer}>
               <Text style={[styles.totalText, { color: colors.primary }]}>
                 Tổng: {steelCount} cây
@@ -302,7 +320,7 @@ export default function DemThepScreen() {
           )}
 
           {/* BỘ 3 CÔNG TẮC ĐIỀU KHIỂN HIỂN THỊ */}
-          {steelCount !== null && !isLoading && (resultImages.v1 || resultImage) && (
+          {steelCount !== null && !isLoading && !isPreparingFrame && (resultImages.v1 || resultImage) && (
             <View style={[styles.toggleContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <TouchableOpacity 
                 style={[styles.toggleBtn, currentMode === 1 && { backgroundColor: colors.primary }]}
@@ -327,11 +345,11 @@ export default function DemThepScreen() {
             </View>
           )}
 
-          {/* NÚT THAO TÁC */}
+          {/* NÚT THAO TÁC (GỌI HÀM DELAY 1 GIÂY MỚI TẠO) */}
           <View style={styles.buttonRow}>
             <TouchableOpacity 
               style={[styles.actionBtn, { backgroundColor: colors.primary }]} 
-              onPress={() => pickImage(true)}
+              onPress={() => handlePickImagePress(true)}
             >
               <Ionicons name="camera" size={24} color="white" />
               <Text style={styles.btnText}>Chụp Ảnh</Text>
@@ -339,7 +357,7 @@ export default function DemThepScreen() {
 
             <TouchableOpacity 
               style={[styles.actionBtn, { backgroundColor: colors.iconBg }]} 
-              onPress={() => pickImage(false)}
+              onPress={() => handlePickImagePress(false)}
             >
               <Ionicons name="images" size={24} color={colors.text} />
               <Text style={[styles.btnText, { color: colors.text }]}>Thư Viện</Text>
@@ -365,7 +383,7 @@ export default function DemThepScreen() {
               <TouchableOpacity 
                 key={item.id} 
                 style={[styles.historyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={() => viewHistoryItem(item)} 
+                onPress={() => handleHistoryPress(item)} 
               >
                 <Image source={{ uri: item.processedImage || item.originalImage }} style={styles.historyThumb} />
                 <View style={styles.historyInfo}>
