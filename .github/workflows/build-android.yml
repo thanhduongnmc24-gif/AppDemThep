@@ -1,0 +1,61 @@
+name: Build ứng dụng Android (APK)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./ipa
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ipa/package-lock.json
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Expo Prebuild cho Android
+        run: npx expo prebuild --platform android --clean
+
+      - name: Build file APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+          cd ..
+          mkdir -p build
+          cp android/app/build/outputs/apk/release/app-release.apk build/DemThep.apk
+
+      - name: Generate Tag Name
+        id: tag
+        run: |
+          echo "release_tag=apk-build-$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Release to GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          name: Bản Build Android APK ${{ steps.tag.outputs.release_tag }}
+          body: "Bản build APK cài đặt trực tiếp cho thiết bị Android ngoài bãi."
+          files: ipa/build/DemThep.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
