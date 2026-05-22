@@ -270,7 +270,7 @@ export default function DemThepScreen() {
           
           <View style={styles.header}>
             <Text style={[styles.title, { color: colors.text }]}>Thần Nhãn Đếm Thép</Text>
-            <Text style={[styles.subtitle, { color: colors.subText }]}>Năng suất x100 lần</Text>
+            <Text style={[styles.subtitle, { color: colors.subText }]}>Nguyễn Thanh Dương-HPDQ01016</Text>
           </View>
 
           {/* KHU VỰC HIỂN THỊ ẢNH CỐ ĐỊNH KHUNG */}
