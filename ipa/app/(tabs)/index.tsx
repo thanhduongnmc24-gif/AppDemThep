@@ -30,42 +30,42 @@ type BatchItem = {
 };
 
 // COMPONENT CON XỬ LÝ ZOOM ĐỘC LẬP - CÁCH MẠNG MỚI DIỆT TẬN GỐC LỖI LÚN GÓC
+// COMPONENT CON XỬ LÝ ZOOM ĐỘC LẬP - BẢN FIX CRASH VÀ KHÓA CHẶT KHUNG
 function SteelImageViewer({ imageUri }: { imageUri: string }) {
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [resetKey, setResetKey] = useState(0);
   const lastTap = useRef(0);
 
-  // Cảm biến 1: Khi đổi sang bó thép khác -> Tự động trả zoom về 0 ngay lập tức
+  // Cảm biến 1: Khi đổi sang bó thép khác -> Reset khung đưa ảnh về gốc
   useEffect(() => {
-    scrollViewRef.current?.getScrollResponder()?.scrollResponderZoomTo?.({
-      x: 0, y: 0, width: 10000, height: 10000, animated: false
-    });
+    setResetKey(prev => prev + 1);
   }, [imageUri]);
 
   // Cảm biến 2: Bắt nhịp gõ 2 cái (Double Tap) của anh hai
   const handleDoubleTap = () => {
     const now = Date.now();
     if (now - lastTap.current < 300) { 
-      // Gọi lệnh thu nhỏ ảnh mượt mà, không đập bỏ Component nữa
-      scrollViewRef.current?.getScrollResponder()?.scrollResponderZoomTo?.({
-        x: 0, y: 0, width: 10000, height: 10000, animated: true
-      });
+      setResetKey(prev => prev + 1); 
     }
     lastTap.current = now;
   };
 
   return (
     <ScrollView
-      ref={scrollViewRef}
+      key={resetKey} // Chìa khóa vàng đập đi xây lại siêu mượt mà không crash
       maximumZoomScale={5}
       minimumZoomScale={1}
       showsHorizontalScrollIndicator={false}
       showsVerticalScrollIndicator={false}
       centerContent={true}
       
-      // --- [BÙA CHỐNG LÚN ẢNH TRÊN IPHONE] ---
-      contentInsetAdjustmentBehavior="never" // Cấm iOS tự chèn khoảng trống tai thỏ
+      // --- [BỘ CÔNG TẮC GỘP: VỪA KHÓA KHUNG VỪA CHỐNG LÚN ẢNH] ---
+      bounces={false} 
+      bouncesZoom={false}
+      alwaysBounceVertical={false}
+      alwaysBounceHorizontal={false}
+      contentInsetAdjustmentBehavior="never" 
       automaticallyAdjustContentInsets={false}
-      // ---------------------------------------
+      // -----------------------------------------------------------
 
       style={styles.viewerScroll}
       contentContainerStyle={styles.viewerContainer}
@@ -76,7 +76,6 @@ function SteelImageViewer({ imageUri }: { imageUri: string }) {
     </ScrollView>
   );
 }
-
 export default function DemThepScreen() {
   const { colors } = useTheme(); 
   const mainScrollRef = useRef<ScrollView>(null); 
