@@ -627,3 +627,4 @@ const styles = StyleSheet.create({
   historyInfo: { flex: 1 },
   historyCount: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 }
 });
+//dsfdsf
