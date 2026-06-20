@@ -50,20 +50,13 @@ type BatchItem = {
   processingTime: number | null;
 };
 
-function SteelImageViewer({
-  imageUri,
-  resetTrigger,
-}: {
-  imageUri: string;
-  resetTrigger: string | undefined;
-}) {
+function SteelImageViewer({ imageUri, resetTrigger }: { imageUri: string; resetTrigger: string | undefined }) {
   const [viewerKey, setViewerKey] = useState(0);
   const lastTap = useRef(0);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     setViewerKey(prev => prev + 1);
-
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
     });
@@ -71,7 +64,6 @@ function SteelImageViewer({
 
   const resetZoom = () => {
     setViewerKey(prev => prev + 1);
-
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
     });
@@ -79,11 +71,9 @@ function SteelImageViewer({
 
   const handleDoubleTap = () => {
     const now = Date.now();
-
     if (now - lastTap.current < 300) {
       resetZoom();
     }
-
     lastTap.current = now;
   };
 
@@ -139,11 +129,7 @@ export default function DemThepScreen() {
     const numberValue = Number(normalizedText);
 
     if (Number.isNaN(numberValue)) return fallback;
-
-    // Dọn dữ liệu cũ nếu máy từng lưu dạng 60 / 70.
-    if (numberValue > 1) {
-      return String(numberValue / 100);
-    }
+    if (numberValue > 1) return String(numberValue / 100);
 
     return normalizedText;
   };
@@ -174,10 +160,7 @@ export default function DemThepScreen() {
   const loadHistory = async () => {
     try {
       const savedHistory = await AsyncStorage.getItem('DEMTHEP_HISTORY');
-
-      if (savedHistory) {
-        setHistory(JSON.parse(savedHistory));
-      }
+      if (savedHistory) setHistory(JSON.parse(savedHistory));
     } catch (error) {
       console.log('Lỗi tải lịch sử:', error);
     }
@@ -186,7 +169,7 @@ export default function DemThepScreen() {
   const saveToHistory = async (original: string, processed: string | undefined, count: number) => {
     try {
       const newItem: HistoryItem = {
-        id: Date.now().toString() + Math.random().toString(),
+        id: `${Date.now()}-${Math.random()}`,
         originalImage: original,
         processedImage: processed,
         count,
@@ -194,7 +177,6 @@ export default function DemThepScreen() {
       };
 
       const newHistory = [newItem, ...history];
-
       setHistory(newHistory);
       await AsyncStorage.setItem('DEMTHEP_HISTORY', JSON.stringify(newHistory));
     } catch (error) {
@@ -209,9 +191,7 @@ export default function DemThepScreen() {
     };
 
     if (Platform.OS === 'web') {
-      if (window.confirm('Anh hai có chắc muốn xóa hết lịch sử đếm không?')) {
-        clearLogic();
-      }
+      if (window.confirm('Anh hai có chắc muốn xóa hết lịch sử đếm không?')) clearLogic();
     } else {
       Alert.alert('Xóa lịch sử', 'Anh hai có chắc muốn xóa hết lịch sử đếm không?', [
         { text: 'Hủy', style: 'cancel' },
@@ -245,7 +225,6 @@ export default function DemThepScreen() {
         [{ resize: { width: 1024 } }],
         { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
       );
-
       return manipResult.uri;
     } catch (error) {
       console.log('Lỗi resize ảnh:', error);
@@ -254,31 +233,9 @@ export default function DemThepScreen() {
   };
 
   const pickImage = async (useCamera: boolean) => {
+    Alert.alert('Test', useCamera ? 'Đã bấm Chụp ảnh' : 'Đã bấm Chọn ảnh');
+
     try {
-      let permissionResult;
-
-      if (useCamera) {
-        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
-        if (!permissionResult.granted) {
-          Alert.alert(
-            'Thiếu quyền Camera',
-            'Anh hai cần cấp quyền Camera thì app mới chụp ảnh được. Vào Cài đặt iPhone để bật lại quyền nếu đã lỡ từ chối.'
-          );
-          return;
-        }
-      } else {
-        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-        if (!permissionResult.granted) {
-          Alert.alert(
-            'Thiếu quyền Thư viện ảnh',
-            'Anh hai cần cấp quyền truy cập ảnh thì app mới chọn ảnh được. Vào Cài đặt iPhone để bật lại quyền nếu đã lỡ từ chối.'
-          );
-          return;
-        }
-      }
-
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
@@ -287,13 +244,17 @@ export default function DemThepScreen() {
         selectionLimit: useCamera ? 1 : 10,
       };
 
-      const result = useCamera
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
+      let result;
 
-      if (result.canceled) {
-        return;
+      if (useCamera) {
+        await ImagePicker.requestCameraPermissionsAsync();
+        result = await ImagePicker.launchCameraAsync(options);
+      } else {
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+        result = await ImagePicker.launchImageLibraryAsync(options);
       }
+
+      if (result.canceled) return;
 
       if (!result.assets || result.assets.length === 0) {
         Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
@@ -329,11 +290,7 @@ export default function DemThepScreen() {
       }
     } catch (error: any) {
       console.log('Lỗi chọn/chụp ảnh:', error);
-
-      Alert.alert(
-        'Lỗi chọn/chụp ảnh',
-        error?.message || 'Không thể mở camera hoặc thư viện ảnh.'
-      );
+      Alert.alert('Lỗi chọn/chụp ảnh', error?.message || 'Không thể mở camera hoặc thư viện ảnh.');
     }
   };
 
@@ -347,12 +304,10 @@ export default function DemThepScreen() {
 
     setBatch(prev => {
       const newBatch = [...prev];
-
       if (newBatch[targetIndex]) {
         newBatch[targetIndex].status = 'loading';
         newBatch[targetIndex].processingTime = null;
       }
-
       return newBatch;
     });
 
@@ -379,7 +334,6 @@ export default function DemThepScreen() {
         const filename = uri.split('/').pop() || 'image.jpg';
         const match = /\.(\w+)$/.exec(filename);
         const type = match ? `image/${match[1]}` : 'image/jpeg';
-
         // @ts-ignore
         formData.append('file', { uri, name: filename, type });
       }
@@ -401,16 +355,13 @@ export default function DemThepScreen() {
       }
 
       let data;
-
       try {
         data = JSON.parse(responseText);
       } catch {
         throw new Error('Máy chủ không trả JSON. Có thể link rút gọn đang trả HTML hoặc redirect sai.');
       }
 
-      if (data.error) {
-        throw new Error(String(data.error));
-      }
+      if (data.error) throw new Error(String(data.error));
 
       if (data.count !== undefined) {
         const elapsedSeconds = Number(((Date.now() - processStartTime) / 1000).toFixed(1));
@@ -419,7 +370,6 @@ export default function DemThepScreen() {
 
         setBatch(prev => {
           const newBatch = [...prev];
-
           if (newBatch[targetIndex]) {
             newBatch[targetIndex] = {
               ...newBatch[targetIndex],
@@ -434,29 +384,23 @@ export default function DemThepScreen() {
               processingTime: elapsedSeconds,
             };
           }
-
           return newBatch;
         });
 
-        if (fallbackUri && !currentFilterMode) {
-          saveToHistory(uri, fallbackUri, data.count);
-        }
+        if (fallbackUri && !currentFilterMode) saveToHistory(uri, fallbackUri, data.count);
       } else {
         throw new Error('Lỗi dữ liệu trả về!');
       }
     } catch (error: any) {
       const elapsedSeconds = Number(((Date.now() - processStartTime) / 1000).toFixed(1));
-
       console.log(error);
 
       setBatch(prev => {
         const newBatch = [...prev];
-
         if (newBatch[targetIndex]) {
           newBatch[targetIndex].status = 'error';
           newBatch[targetIndex].processingTime = elapsedSeconds;
         }
-
         return newBatch;
       });
 
@@ -466,14 +410,11 @@ export default function DemThepScreen() {
     }
   };
 
-  const handleModeChange = (mode: number) => {
-    setCurrentMode(mode);
-  };
+  const handleModeChange = (mode: number) => setCurrentMode(mode);
 
   const toggleFilter = () => {
     const newMode = !isFiltering;
     const filterStartTime = Date.now();
-
     setIsFiltering(newMode);
 
     if (batch.length > 0 && activeIndex >= 0) {
@@ -485,11 +426,9 @@ export default function DemThepScreen() {
 
   const getDisplayImage = () => {
     if (!currentActiveItem) return null;
-
     if (currentMode === 1 && currentActiveItem.resultImages.v1) return currentActiveItem.resultImages.v1;
     if (currentMode === 2 && currentActiveItem.resultImages.v2) return currentActiveItem.resultImages.v2;
     if (currentMode === 3 && currentActiveItem.resultImages.v3) return currentActiveItem.resultImages.v3;
-
     return currentActiveItem.processedImage || currentActiveItem.originalImage;
   };
 
@@ -507,7 +446,6 @@ export default function DemThepScreen() {
             <View style={styles.headerCenter}>
               <View style={[styles.nameBadge, { backgroundColor: colors.iconBg, borderColor: colors.primary }]}>
                 <Ionicons name="person-circle" size={16} color={colors.primary} />
-
                 <Text
                   style={[styles.subtitle, { color: colors.primary, textShadowColor: colors.border }]}
                   numberOfLines={1}
@@ -527,9 +465,7 @@ export default function DemThepScreen() {
             {isCurrentlyLoading ? (
               <View style={styles.loadingBox}>
                 <ActivityIndicator size="large" color={colors.primary} />
-                <Text style={{ color: colors.text, marginTop: 10, textAlign: 'center' }}>
-                  Đang đếm thép...
-                </Text>
+                <Text style={{ color: colors.text, marginTop: 10, textAlign: 'center' }}>Đang đếm thép...</Text>
               </View>
             ) : displayUri ? (
               <SteelImageViewer
@@ -540,9 +476,7 @@ export default function DemThepScreen() {
             ) : (
               <View style={styles.placeholderBox}>
                 <Ionicons name="image-outline" size={50} color={colors.subText} />
-                <Text style={{ color: colors.subText, marginTop: 10, textAlign: 'center' }}>
-                  Chưa có ảnh nào được chọn
-                </Text>
+                <Text style={{ color: colors.subText, marginTop: 10, textAlign: 'center' }}>Chưa có ảnh nào được chọn</Text>
               </View>
             )}
           </View>
@@ -553,7 +487,6 @@ export default function DemThepScreen() {
                 <Text style={[styles.totalText, { color: colors.primary }]}> 
                   {isFiltering ? `ĐANG LỌC: ${currentActiveItem.count} LỖI` : `Tổng: ${currentActiveItem.count} cây`}
                 </Text>
-
                 {currentActiveItem.processingTime !== null && (
                   <Text style={[styles.processingTimeText, { color: colors.subText }]}> 
                     {currentActiveItem.processingTime} giây
@@ -577,13 +510,11 @@ export default function DemThepScreen() {
                     ]}
                   >
                     <Image source={{ uri: item.processedImage || item.originalImage }} style={styles.thumbImage} />
-
                     {item.status === 'loading' && (
                       <View style={styles.thumbOverlay}>
                         <ActivityIndicator size="small" color="white" />
                       </View>
                     )}
-
                     {item.status === 'success' && item.count !== null && (
                       <View style={[styles.thumbBadge, { backgroundColor: colors.primary }]}> 
                         <Text style={styles.thumbBadgeText}>{item.count}</Text>
@@ -597,52 +528,28 @@ export default function DemThepScreen() {
 
           <View style={styles.controlRow}>
             <TouchableOpacity
-              style={[
-                styles.modeBtn,
-                {
-                  backgroundColor: currentMode === 1 ? colors.primary : colors.card,
-                  borderColor: currentMode === 1 ? colors.primary : colors.border,
-                },
-              ]}
+              style={[styles.modeBtn, { backgroundColor: currentMode === 1 ? colors.primary : colors.card, borderColor: currentMode === 1 ? colors.primary : colors.border }]}
               onPress={() => handleModeChange(1)}
             >
               <Text style={[styles.modeText, { color: currentMode === 1 ? 'white' : colors.text }]}>Khung</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.modeBtn,
-                {
-                  backgroundColor: currentMode === 2 ? colors.primary : colors.card,
-                  borderColor: currentMode === 2 ? colors.primary : colors.border,
-                },
-              ]}
+              style={[styles.modeBtn, { backgroundColor: currentMode === 2 ? colors.primary : colors.card, borderColor: currentMode === 2 ? colors.primary : colors.border }]}
               onPress={() => handleModeChange(2)}
             >
               <Text style={[styles.modeText, { color: currentMode === 2 ? 'white' : colors.text }]}>K+Số</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.modeBtn,
-                {
-                  backgroundColor: currentMode === 3 ? colors.primary : colors.card,
-                  borderColor: currentMode === 3 ? colors.primary : colors.border,
-                },
-              ]}
+              style={[styles.modeBtn, { backgroundColor: currentMode === 3 ? colors.primary : colors.card, borderColor: currentMode === 3 ? colors.primary : colors.border }]}
               onPress={() => handleModeChange(3)}
             >
               <Text style={[styles.modeText, { color: currentMode === 3 ? 'white' : colors.text }]}>Số</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.modeBtn,
-                {
-                  backgroundColor: isFiltering ? '#EAB308' : colors.card,
-                  borderColor: isFiltering ? '#EAB308' : colors.border,
-                },
-              ]}
+              style={[styles.modeBtn, { backgroundColor: isFiltering ? '#EAB308' : colors.card, borderColor: isFiltering ? '#EAB308' : colors.border }]}
               onPress={toggleFilter}
             >
               <Text style={[styles.modeText, { color: isFiltering ? 'white' : colors.text }]}> 
@@ -652,18 +559,12 @@ export default function DemThepScreen() {
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-              onPress={() => pickImage(true)}
-            >
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.primary }]} onPress={() => pickImage(true)}>
               <Ionicons name="camera" size={24} color="white" />
               <Text style={styles.btnText}>Chụp Ảnh</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: colors.iconBg, borderWidth: 1, borderColor: colors.border }]}
-              onPress={() => pickImage(false)}
-            >
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.iconBg, borderWidth: 1, borderColor: colors.border }]} onPress={() => pickImage(false)}>
               <Ionicons name="images" size={24} color={colors.text} />
               <Text style={[styles.btnText, { color: colors.text }]}>Chọn Ảnh</Text>
             </TouchableOpacity>
@@ -673,7 +574,6 @@ export default function DemThepScreen() {
 
           <View style={styles.historyHeader}>
             <Text style={[styles.historyTitle, { color: colors.text }]}>Lịch Sử Đếm Gần Đây</Text>
-
             {history.length > 0 && (
               <TouchableOpacity onPress={clearHistory}>
                 <Ionicons name="trash-bin-outline" size={20} color={colors.error} />
@@ -682,9 +582,7 @@ export default function DemThepScreen() {
           </View>
 
           {history.length === 0 ? (
-            <Text style={{ color: colors.subText, fontStyle: 'italic', textAlign: 'center' }}>
-              Chưa có lịch sử.
-            </Text>
+            <Text style={{ color: colors.subText, fontStyle: 'italic', textAlign: 'center' }}>Chưa có lịch sử.</Text>
           ) : (
             history.map(item => (
               <TouchableOpacity
@@ -693,17 +591,14 @@ export default function DemThepScreen() {
                 onPress={() => viewHistoryItem(item)}
               >
                 <Image source={{ uri: item.processedImage || item.originalImage }} style={styles.historyThumb} />
-
                 <View style={styles.historyInfo}>
                   <Text style={[styles.historyCount, { color: colors.primary }]}> 
                     {item.count} cây
                   </Text>
-
                   <Text style={{ color: colors.subText, fontSize: 10 }}>
                     {format(new Date(item.date), 'HH:mm dd/MM/')}
                   </Text>
                 </View>
-
                 <Ionicons name="chevron-forward" size={16} color={colors.subText} />
               </TouchableOpacity>
             ))
@@ -715,28 +610,10 @@ export default function DemThepScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: 12,
-    paddingBottom: 60,
-  },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-
-  headerSide: {
-    width: 34,
-  },
-
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-
+  scrollContent: { padding: 12, paddingBottom: 60 },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  headerSide: { width: 34 },
+  headerCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   nameBadge: {
     maxWidth: '100%',
     flexDirection: 'row',
@@ -752,7 +629,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-
   subtitle: {
     flexShrink: 1,
     marginLeft: 5,
@@ -763,7 +639,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
-
   imagePanel: {
     width: '100%',
     height: WORKSPACE_HEIGHT,
@@ -774,35 +649,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  placeholderBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  loadingBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-  },
-
-  viewerScroll: {
-    width: '100%',
-    height: '100%',
-  },
-
-  viewerContainer: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  mainImage: {
-    width: '100%',
-    height: '100%',
-  },
-
+  placeholderBox: { alignItems: 'center', justifyContent: 'center' },
+  loadingBox: { alignItems: 'center', justifyContent: 'center', padding: 10 },
+  viewerScroll: { width: '100%', height: '100%' },
+  viewerContainer: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
+  mainImage: { width: '100%', height: '100%' },
   totalContainer: {
     alignItems: 'center',
     marginBottom: 10,
@@ -811,31 +662,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 10,
   },
-
-  totalRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-  },
-
-  totalText: {
-    fontSize: 18,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-
-  processingTimeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-
-  controlRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-
+  totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' },
+  totalText: { fontSize: 18, fontWeight: '900', textTransform: 'uppercase' },
+  processingTimeText: { fontSize: 11, fontWeight: '600', marginLeft: 8 },
+  controlRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   modeBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -849,19 +679,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
   },
-
-  modeText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-
+  modeText: { fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
+  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
@@ -871,19 +690,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginHorizontal: 4,
   },
-
-  btnText: {
-    color: 'white',
-    fontWeight: 'bold',
-    marginLeft: 8,
-    fontSize: 15,
-  },
-
-  thumbnailContainer: {
-    marginBottom: 10,
-    height: 60,
-  },
-
+  btnText: { color: 'white', fontWeight: 'bold', marginLeft: 8, fontSize: 15 },
+  thumbnailContainer: { marginBottom: 10, height: 60 },
   thumbWrap: {
     width: 50,
     height: 50,
@@ -895,75 +703,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  thumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-
-  thumbOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  thumbBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    borderBottomLeftRadius: 5,
-  },
-
-  thumbBadgeText: {
-    color: 'white',
-    fontSize: 8,
-    fontWeight: 'bold',
-  },
-
-  separator: {
-    height: 1,
-    backgroundColor: 'rgba(150,150,150,0.1)',
-    marginVertical: 8,
-  },
-
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-
-  historyCard: {
-    flexDirection: 'row',
-    padding: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-
-  historyThumb: {
-    width: 45,
-    height: 45,
-    borderRadius: 6,
-    marginRight: 10,
-  },
-
-  historyInfo: {
-    flex: 1,
-  },
-
-  historyCount: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
+  thumbImage: { width: '100%', height: '100%' },
+  thumbOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  thumbBadge: { position: 'absolute', top: 0, right: 0, paddingHorizontal: 3, paddingVertical: 1, borderBottomLeftRadius: 5 },
+  thumbBadgeText: { color: 'white', fontSize: 8, fontWeight: 'bold' },
+  separator: { height: 1, backgroundColor: 'rgba(150,150,150,0.1)', marginVertical: 8 },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  historyTitle: { fontSize: 16, fontWeight: 'bold' },
+  historyCard: { flexDirection: 'row', padding: 8, borderRadius: 10, borderWidth: 1, marginBottom: 8, alignItems: 'center' },
+  historyThumb: { width: 45, height: 45, borderRadius: 6, marginRight: 10 },
+  historyInfo: { flex: 1 },
+  historyCount: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
 });

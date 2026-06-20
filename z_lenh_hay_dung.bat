@@ -2,4 +2,4 @@
 colab
 https://lakeesha-nonautonomous-catarina.ngrok-free.dev/predict
 huggingface
-git add . && git commit -m "Fix giao diện và zoom" && git push origin main
+git add . && git commit -m "Fix lỗi không chọn ảnh được" && git push origin main

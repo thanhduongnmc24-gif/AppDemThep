@@ -14,9 +14,6 @@
       "appleTeamId": "DemThep",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "Ứng dụng cần dùng Camera để chụp ảnh đếm thép.",
-        "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh đếm thép.",
-        "NSPhotoLibraryAddUsageDescription": "Ứng dụng cần quyền lưu ảnh kết quả đếm thép nếu cần.",
         "NSCalendarsUsageDescription": "App cần quyền truy cập Lịch để nhắc nhở ca làm việc.",
         "NSCalendarsFullAccessUsageDescription": "App cần quyền ghi lịch để lưu nhắc nhở ca làm việc.",
         "UIBackgroundModes": [
@@ -34,9 +31,6 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_CALENDAR",
         "android.permission.WRITE_CALENDAR"
       ]
@@ -47,13 +41,6 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh đếm thép.",
-          "cameraPermission": "Ứng dụng cần dùng Camera để chụp ảnh đếm thép."
-        }
-      ],
       [
         "expo-calendar",
         {
