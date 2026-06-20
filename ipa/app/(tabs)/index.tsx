@@ -4,6 +4,7 @@ import {
   Alert,
   Dimensions,
   Image,
+  InteractionManager,
   Platform,
   ScrollView,
   StyleSheet,
@@ -116,6 +117,7 @@ export default function DemThepScreen() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [currentMode, setCurrentMode] = useState<number>(1);
   const [isFiltering, setIsFiltering] = useState<boolean>(false);
+  const isPickingRef = useRef(false);
 
   useEffect(() => {
     loadHistory();
@@ -234,83 +236,127 @@ export default function DemThepScreen() {
     }
   };
 
+  const handlePickedAssets = async (assets: ImagePicker.ImagePickerAsset[], startTime: number) => {
+    const initialBatch: BatchItem[] = await Promise.all(
+      assets.map(async (asset, index) => {
+        const resized = await resizeImage(asset.uri);
+
+        return {
+          id: `${Date.now()}-${index}-${Math.random()}`,
+          originalImage: resized,
+          processedImage: null,
+          count: null,
+          resultImages: { v1: null, v2: null, v3: null },
+          status: 'loading',
+          processingTime: null,
+        };
+      })
+    );
+
+    setBatch(initialBatch);
+    setActiveIndex(0);
+    setCurrentMode(1);
+    mainScrollRef.current?.scrollTo({ y: 0, animated: true });
+
+    for (let i = 0; i < initialBatch.length; i++) {
+      setActiveIndex(i);
+      await processSingleImage(initialBatch[i].originalImage, i, isFiltering, startTime);
+    }
+  };
+
+  const runAfterUIIdle = (task: () => void) => {
+    InteractionManager.runAfterInteractions(() => {
+      setTimeout(task, 250);
+    });
+  };
+
   const pickImage = async (useCamera: boolean) => {
+    if (isPickingRef.current) return;
+    isPickingRef.current = true;
+
     try {
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
-        quality: 1,
-        allowsMultipleSelection: !useCamera,
-        selectionLimit: useCamera ? 1 : 10,
+        quality: 0.8,
+        allowsMultipleSelection: false,
       };
 
-      let result: ImagePicker.ImagePickerResult;
-
       if (useCamera) {
-        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        const currentPermission = await ImagePicker.getCameraPermissionsAsync();
 
-        if (!permission.granted) {
-          Alert.alert(
-            'Thiếu quyền Camera',
-            'Anh hai cần cấp quyền Camera trong Cài đặt iPhone để chụp ảnh.'
-          );
-          return;
+        if (!currentPermission.granted) {
+          const requestedPermission = await ImagePicker.requestCameraPermissionsAsync();
+
+          if (!requestedPermission.granted) {
+            isPickingRef.current = false;
+            Alert.alert(
+              'Thiếu quyền Camera',
+              'Anh hai cần cấp quyền Camera trong Cài đặt iPhone để chụp ảnh.'
+            );
+            return;
+          }
         }
 
-        // Chờ permission dialog đóng hẳn rồi mới mở camera, tránh iOS bị kẹt presentation.
-        await wait(350);
-        result = await ImagePicker.launchCameraAsync(options);
+        await wait(300);
+
+        runAfterUIIdle(async () => {
+          try {
+            const result = await ImagePicker.launchCameraAsync(options);
+            isPickingRef.current = false;
+
+            if (result.canceled) return;
+            if (!result.assets || result.assets.length === 0) {
+              Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
+              return;
+            }
+
+            await handlePickedAssets(result.assets, Date.now());
+          } catch (error: any) {
+            isPickingRef.current = false;
+            console.log('Lỗi mở camera:', error);
+            Alert.alert('Lỗi mở camera', error?.message || 'Không thể mở camera.');
+          }
+        });
       } else {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const currentPermission = await ImagePicker.getMediaLibraryPermissionsAsync();
 
-        if (!permission.granted) {
-          Alert.alert(
-            'Thiếu quyền Ảnh',
-            'Anh hai cần cấp quyền truy cập Ảnh trong Cài đặt iPhone để chọn ảnh.'
-          );
-          return;
+        if (!currentPermission.granted) {
+          const requestedPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+          if (!requestedPermission.granted) {
+            isPickingRef.current = false;
+            Alert.alert(
+              'Thiếu quyền Ảnh',
+              'Anh hai cần cấp quyền truy cập Ảnh trong Cài đặt iPhone để chọn ảnh.'
+            );
+            return;
+          }
         }
 
-        // Chờ permission dialog đóng hẳn rồi mới mở thư viện ảnh, tránh iOS bị kẹt presentation.
-        await wait(350);
-        result = await ImagePicker.launchImageLibraryAsync(options);
-      }
+        await wait(300);
 
-      if (result.canceled) return;
+        runAfterUIIdle(async () => {
+          try {
+            const result = await ImagePicker.launchImageLibraryAsync(options);
+            isPickingRef.current = false;
 
-      if (!result.assets || result.assets.length === 0) {
-        Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
-        return;
-      }
+            if (result.canceled) return;
+            if (!result.assets || result.assets.length === 0) {
+              Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
+              return;
+            }
 
-      const batchStartTime = Date.now();
-
-      const initialBatch: BatchItem[] = await Promise.all(
-        result.assets.map(async (asset, index) => {
-          const resized = await resizeImage(asset.uri);
-
-          return {
-            id: `${Date.now()}-${index}-${Math.random()}`,
-            originalImage: resized,
-            processedImage: null,
-            count: null,
-            resultImages: { v1: null, v2: null, v3: null },
-            status: 'loading',
-            processingTime: null,
-          };
-        })
-      );
-
-      setBatch(initialBatch);
-      setActiveIndex(0);
-      setCurrentMode(1);
-      mainScrollRef.current?.scrollTo({ y: 0, animated: true });
-
-      for (let i = 0; i < initialBatch.length; i++) {
-        setActiveIndex(i);
-        await processSingleImage(initialBatch[i].originalImage, i, isFiltering, batchStartTime);
+            await handlePickedAssets(result.assets, Date.now());
+          } catch (error: any) {
+            isPickingRef.current = false;
+            console.log('Lỗi mở thư viện ảnh:', error);
+            Alert.alert('Lỗi mở thư viện ảnh', error?.message || 'Không thể mở thư viện ảnh.');
+          }
+        });
       }
     } catch (error: any) {
+      isPickingRef.current = false;
       console.log('Lỗi chọn/chụp ảnh:', error);
       Alert.alert('Lỗi chọn/chụp ảnh', error?.message || 'Không thể mở camera hoặc thư viện ảnh.');
     }
