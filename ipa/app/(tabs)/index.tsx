@@ -1,7 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  StyleSheet, Text, View, TouchableOpacity, ScrollView,
-  Image, ActivityIndicator, Alert, Platform, TouchableWithoutFeedback, Dimensions
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,15 +45,14 @@ type BatchItem = {
   originalImage: string;
   processedImage: string | null;
   count: number | null;
-  resultImages: { v1: string | null, v2: string | null, v3: string | null };
+  resultImages: { v1: string | null; v2: string | null; v3: string | null };
   status: 'loading' | 'success' | 'error' | 'idle';
   processingTime: number | null;
 };
 
-// COMPONENT CON XỬ LÝ ZOOM ĐỘC LẬP
 function SteelImageViewer({
   imageUri,
-  resetTrigger
+  resetTrigger,
 }: {
   imageUri: string;
   resetTrigger: string | undefined;
@@ -54,24 +62,26 @@ function SteelImageViewer({
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    // Ép remount ScrollView để xóa sạch zoom scale + content offset cũ
     setViewerKey(prev => prev + 1);
 
-    // Reset vị trí cuộn về góc trên trái, tránh ảnh mới bị kẹt offset cũ
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
     });
   }, [imageUri, resetTrigger]);
 
+  const resetZoom = () => {
+    setViewerKey(prev => prev + 1);
+
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
+    });
+  };
+
   const handleDoubleTap = () => {
     const now = Date.now();
 
     if (now - lastTap.current < 300) {
-      setViewerKey(prev => prev + 1);
-
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
-      });
+      resetZoom();
     }
 
     lastTap.current = now;
@@ -130,7 +140,7 @@ export default function DemThepScreen() {
 
     if (Number.isNaN(numberValue)) return fallback;
 
-    // Dọn dữ liệu cũ nếu trước đây đã lưu dạng 60 / 70.
+    // Dọn dữ liệu cũ nếu máy từng lưu dạng 60 / 70.
     if (numberValue > 1) {
       return String(numberValue / 100);
     }
@@ -152,7 +162,6 @@ export default function DemThepScreen() {
       await AsyncStorage.setItem(MIN_CONF_KEY, nextMinConf);
       await AsyncStorage.setItem(ALERT_CONF_KEY, nextAlertConf);
 
-      // Dọn dữ liệu cũ để app chỉ dùng 1 link duy nhất.
       await AsyncStorage.removeItem('ACTIVE_SERVER');
       await AsyncStorage.removeItem('COLAB_URL');
       await AsyncStorage.removeItem('HF_URL');
@@ -180,7 +189,7 @@ export default function DemThepScreen() {
         id: Date.now().toString() + Math.random().toString(),
         originalImage: original,
         processedImage: processed,
-        count: count,
+        count,
         date: new Date().toISOString(),
       };
 
@@ -206,21 +215,23 @@ export default function DemThepScreen() {
     } else {
       Alert.alert('Xóa lịch sử', 'Anh hai có chắc muốn xóa hết lịch sử đếm không?', [
         { text: 'Hủy', style: 'cancel' },
-        { text: 'Xóa sạch', style: 'destructive', onPress: clearLogic }
+        { text: 'Xóa sạch', style: 'destructive', onPress: clearLogic },
       ]);
     }
   };
 
   const viewHistoryItem = (item: HistoryItem) => {
-    setBatch([{
-      id: item.id,
-      originalImage: item.originalImage,
-      processedImage: item.processedImage || null,
-      count: item.count,
-      resultImages: { v1: item.processedImage || null, v2: null, v3: null },
-      status: 'success',
-      processingTime: null
-    }]);
+    setBatch([
+      {
+        id: item.id,
+        originalImage: item.originalImage,
+        processedImage: item.processedImage || null,
+        count: item.count,
+        resultImages: { v1: item.processedImage || null, v2: null, v3: null },
+        status: 'success',
+        processingTime: null,
+      },
+    ]);
 
     setActiveIndex(0);
     setCurrentMode(1);
@@ -236,56 +247,93 @@ export default function DemThepScreen() {
       );
 
       return manipResult.uri;
-    } catch (e) {
+    } catch (error) {
+      console.log('Lỗi resize ảnh:', error);
       return uri;
     }
   };
 
   const pickImage = async (useCamera: boolean) => {
-    const options: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 1,
-      allowsMultipleSelection: !useCamera,
-      selectionLimit: 10,
-    };
+    try {
+      let permissionResult;
 
-    let result;
+      if (useCamera) {
+        permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 
-    if (useCamera) {
-      await ImagePicker.requestCameraPermissionsAsync();
-      result = await ImagePicker.launchCameraAsync(options);
-    } else {
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-      result = await ImagePicker.launchImageLibraryAsync(options);
-    }
+        if (!permissionResult.granted) {
+          Alert.alert(
+            'Thiếu quyền Camera',
+            'Anh hai cần cấp quyền Camera thì app mới chụp ảnh được. Vào Cài đặt iPhone để bật lại quyền nếu đã lỡ từ chối.'
+          );
+          return;
+        }
+      } else {
+        permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      // Tính từ lúc người dùng chụp/chọn ảnh xong.
+        if (!permissionResult.granted) {
+          Alert.alert(
+            'Thiếu quyền Thư viện ảnh',
+            'Anh hai cần cấp quyền truy cập ảnh thì app mới chọn ảnh được. Vào Cài đặt iPhone để bật lại quyền nếu đã lỡ từ chối.'
+          );
+          return;
+        }
+      }
+
+      const options: ImagePicker.ImagePickerOptions = {
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 1,
+        allowsMultipleSelection: !useCamera,
+        selectionLimit: useCamera ? 1 : 10,
+      };
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+
+      if (result.canceled) {
+        return;
+      }
+
+      if (!result.assets || result.assets.length === 0) {
+        Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
+        return;
+      }
+
       const batchStartTime = Date.now();
 
-      const initialBatch: BatchItem[] = await Promise.all(result.assets.map(async (asset, index) => {
-        const resized = await resizeImage(asset.uri);
+      const initialBatch: BatchItem[] = await Promise.all(
+        result.assets.map(async (asset, index) => {
+          const resized = await resizeImage(asset.uri);
 
-        return {
-          id: Date.now().toString() + index,
-          originalImage: resized,
-          processedImage: null,
-          count: null,
-          resultImages: { v1: null, v2: null, v3: null },
-          status: 'loading',
-          processingTime: null
-        };
-      }));
+          return {
+            id: `${Date.now()}-${index}-${Math.random()}`,
+            originalImage: resized,
+            processedImage: null,
+            count: null,
+            resultImages: { v1: null, v2: null, v3: null },
+            status: 'loading',
+            processingTime: null,
+          };
+        })
+      );
 
       setBatch(initialBatch);
       setActiveIndex(0);
       setCurrentMode(1);
+      mainScrollRef.current?.scrollTo({ y: 0, animated: true });
 
       for (let i = 0; i < initialBatch.length; i++) {
         setActiveIndex(i);
         await processSingleImage(initialBatch[i].originalImage, i, isFiltering, batchStartTime);
       }
+    } catch (error: any) {
+      console.log('Lỗi chọn/chụp ảnh:', error);
+
+      Alert.alert(
+        'Lỗi chọn/chụp ảnh',
+        error?.message || 'Không thể mở camera hoặc thư viện ảnh.'
+      );
     }
   };
 
@@ -299,8 +347,12 @@ export default function DemThepScreen() {
 
     setBatch(prev => {
       const newBatch = [...prev];
-      newBatch[targetIndex].status = 'loading';
-      newBatch[targetIndex].processingTime = null;
+
+      if (newBatch[targetIndex]) {
+        newBatch[targetIndex].status = 'loading';
+        newBatch[targetIndex].processingTime = null;
+      }
+
       return newBatch;
     });
 
@@ -326,7 +378,7 @@ export default function DemThepScreen() {
       } else {
         const filename = uri.split('/').pop() || 'image.jpg';
         const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : `image`;
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
 
         // @ts-ignore
         formData.append('file', { uri, name: filename, type });
@@ -356,6 +408,10 @@ export default function DemThepScreen() {
         throw new Error('Máy chủ không trả JSON. Có thể link rút gọn đang trả HTML hoặc redirect sai.');
       }
 
+      if (data.error) {
+        throw new Error(String(data.error));
+      }
+
       if (data.count !== undefined) {
         const elapsedSeconds = Number(((Date.now() - processStartTime) / 1000).toFixed(1));
         const uri1 = data.image_v1 ? `data:image/jpeg;base64,${data.image_v1}` : null;
@@ -364,18 +420,20 @@ export default function DemThepScreen() {
         setBatch(prev => {
           const newBatch = [...prev];
 
-          newBatch[targetIndex] = {
-            ...newBatch[targetIndex],
-            count: data.count,
-            resultImages: {
-              v1: uri1,
-              v2: data.image_v2 ? `data:image/jpeg;base64,${data.image_v2}` : null,
-              v3: data.image_v3 ? `data:image/jpeg;base64,${data.image_v3}` : null
-            },
-            processedImage: fallbackUri,
-            status: 'success',
-            processingTime: elapsedSeconds
-          };
+          if (newBatch[targetIndex]) {
+            newBatch[targetIndex] = {
+              ...newBatch[targetIndex],
+              count: data.count,
+              resultImages: {
+                v1: uri1,
+                v2: data.image_v2 ? `data:image/jpeg;base64,${data.image_v2}` : null,
+                v3: data.image_v3 ? `data:image/jpeg;base64,${data.image_v3}` : null,
+              },
+              processedImage: fallbackUri,
+              status: 'success',
+              processingTime: elapsedSeconds,
+            };
+          }
 
           return newBatch;
         });
@@ -393,8 +451,12 @@ export default function DemThepScreen() {
 
       setBatch(prev => {
         const newBatch = [...prev];
-        newBatch[targetIndex].status = 'error';
-        newBatch[targetIndex].processingTime = elapsedSeconds;
+
+        if (newBatch[targetIndex]) {
+          newBatch[targetIndex].status = 'error';
+          newBatch[targetIndex].processingTime = elapsedSeconds;
+        }
+
         return newBatch;
       });
 
@@ -440,28 +502,27 @@ export default function DemThepScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <ScrollView ref={mainScrollRef} contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-  <View style={styles.headerSide} />
+            <View style={styles.headerSide} />
 
-  <View style={styles.headerCenter}>
-    <View style={[styles.nameBadge, { backgroundColor: colors.iconBg, borderColor: colors.primary }]}>
-      <Ionicons name="person-circle" size={16} color={colors.primary} />
+            <View style={styles.headerCenter}>
+              <View style={[styles.nameBadge, { backgroundColor: colors.iconBg, borderColor: colors.primary }]}>
+                <Ionicons name="person-circle" size={16} color={colors.primary} />
 
-      <Text
-        style={[styles.subtitle, { color: colors.primary, textShadowColor: colors.border }]}
-        numberOfLines={1}
-        ellipsizeMode="clip"
-        allowFontScaling={false}
-        adjustsFontSizeToFit={false}
-      >
-        Nguyễn Thanh Dương - HPDQ01016
-      </Text>
-    </View>
-  </View>
+                <Text
+                  style={[styles.subtitle, { color: colors.primary, textShadowColor: colors.border }]}
+                  numberOfLines={1}
+                  ellipsizeMode="clip"
+                  allowFontScaling={false}
+                  adjustsFontSizeToFit={false}
+                >
+                  Nguyễn Thanh Dương - HPDQ01016
+                </Text>
+              </View>
+            </View>
 
-  <View style={styles.headerSide} />
-</View>
+            <View style={styles.headerSide} />
+          </View>
 
-          {/* KHU VỰC ẢNH FULL MÀN HÌNH */}
           <View style={[styles.imagePanel, { borderColor: colors.border, backgroundColor: colors.card }]}> 
             {isCurrentlyLoading ? (
               <View style={styles.loadingBox}>
@@ -486,7 +547,6 @@ export default function DemThepScreen() {
             )}
           </View>
 
-          {/* KẾT QUẢ ĐẾM THÉP */}
           {currentActiveItem?.status === 'success' && currentActiveItem?.count !== null && (
             <View style={styles.totalContainer}>
               <View style={styles.totalRow}>
@@ -503,7 +563,6 @@ export default function DemThepScreen() {
             </View>
           )}
 
-          {/* DẢI ẢNH THU NHỎ */}
           {batch.length > 1 && (
             <View style={styles.thumbnailContainer}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -514,7 +573,7 @@ export default function DemThepScreen() {
                     style={[
                       styles.thumbWrap,
                       { borderColor: activeIndex === idx ? colors.primary : 'transparent' },
-                      item.status === 'error' && { borderColor: colors.error }
+                      item.status === 'error' && { borderColor: colors.error },
                     ]}
                   >
                     <Image source={{ uri: item.processedImage || item.originalImage }} style={styles.thumbImage} />
@@ -536,15 +595,14 @@ export default function DemThepScreen() {
             </View>
           )}
 
-          {/* BỘ 4 NÚT ĐIỀU KHIỂN */}
           <View style={styles.controlRow}>
             <TouchableOpacity
               style={[
                 styles.modeBtn,
                 {
                   backgroundColor: currentMode === 1 ? colors.primary : colors.card,
-                  borderColor: currentMode === 1 ? colors.primary : colors.border
-                }
+                  borderColor: currentMode === 1 ? colors.primary : colors.border,
+                },
               ]}
               onPress={() => handleModeChange(1)}
             >
@@ -556,8 +614,8 @@ export default function DemThepScreen() {
                 styles.modeBtn,
                 {
                   backgroundColor: currentMode === 2 ? colors.primary : colors.card,
-                  borderColor: currentMode === 2 ? colors.primary : colors.border
-                }
+                  borderColor: currentMode === 2 ? colors.primary : colors.border,
+                },
               ]}
               onPress={() => handleModeChange(2)}
             >
@@ -569,8 +627,8 @@ export default function DemThepScreen() {
                 styles.modeBtn,
                 {
                   backgroundColor: currentMode === 3 ? colors.primary : colors.card,
-                  borderColor: currentMode === 3 ? colors.primary : colors.border
-                }
+                  borderColor: currentMode === 3 ? colors.primary : colors.border,
+                },
               ]}
               onPress={() => handleModeChange(3)}
             >
@@ -582,8 +640,8 @@ export default function DemThepScreen() {
                 styles.modeBtn,
                 {
                   backgroundColor: isFiltering ? '#EAB308' : colors.card,
-                  borderColor: isFiltering ? '#EAB308' : colors.border
-                }
+                  borderColor: isFiltering ? '#EAB308' : colors.border,
+                },
               ]}
               onPress={toggleFilter}
             >
@@ -593,7 +651,6 @@ export default function DemThepScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* NÚT CHỤP / CHỌN ẢNH */}
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.primary }]}
@@ -614,7 +671,6 @@ export default function DemThepScreen() {
 
           <View style={styles.separator} />
 
-          {/* LỊCH SỬ ĐẾM */}
           <View style={styles.historyHeader}>
             <Text style={[styles.historyTitle, { color: colors.text }]}>Lịch Sử Đếm Gần Đây</Text>
 
@@ -630,7 +686,7 @@ export default function DemThepScreen() {
               Chưa có lịch sử.
             </Text>
           ) : (
-            history.map((item) => (
+            history.map(item => (
               <TouchableOpacity
                 key={item.id}
                 style={[styles.historyCard, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -661,55 +717,53 @@ export default function DemThepScreen() {
 const styles = StyleSheet.create({
   scrollContent: {
     padding: 12,
-    paddingBottom: 60
+    paddingBottom: 60,
   },
 
-  // Header
-header: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginBottom: 15
-},
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
 
-headerSide: {
-  width: 34
-},
+  headerSide: {
+    width: 34,
+  },
 
-headerCenter: {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-  overflow: 'hidden'
-},
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
 
-nameBadge: {
-  maxWidth: '100%',
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingHorizontal: 10,
-  paddingVertical: 6,
-  borderRadius: 999,
-  borderWidth: 1.5,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.15,
-  shadowRadius: 3,
-  elevation: 3
-},
+  nameBadge: {
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
 
-subtitle: {
-  flexShrink: 1,
-  marginLeft: 5,
-  fontSize: 13,
-  fontWeight: '900',
-  textAlign: 'center',
-  includeFontPadding: false,
-  textShadowOffset: { width: 0, height: 1 },
-  textShadowRadius: 1
-},
+  subtitle: {
+    flexShrink: 1,
+    marginLeft: 5,
+    fontSize: 13,
+    fontWeight: '900',
+    textAlign: 'center',
+    includeFontPadding: false,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
 
-  // KHUNG ẢNH
   imagePanel: {
     width: '100%',
     height: WORKSPACE_HEIGHT,
@@ -718,35 +772,35 @@ subtitle: {
     borderWidth: 1,
     overflow: 'hidden',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   placeholderBox: {
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
 
   loadingBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 10
+    padding: 10,
   },
 
   viewerScroll: {
     width: '100%',
-    height: '100%'
+    height: '100%',
   },
 
   viewerContainer: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   mainImage: {
     width: '100%',
-    height: '100%'
+    height: '100%',
   },
 
   totalContainer: {
@@ -755,32 +809,31 @@ subtitle: {
     backgroundColor: 'rgba(0,0,0,0.05)',
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 10
+    borderRadius: 10,
   },
 
   totalRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    justifyContent: 'center'
+    justifyContent: 'center',
   },
 
   totalText: {
     fontSize: 18,
     fontWeight: '900',
-    textTransform: 'uppercase'
+    textTransform: 'uppercase',
   },
 
   processingTimeText: {
     fontSize: 11,
     fontWeight: '600',
-    marginLeft: 8
+    marginLeft: 8,
   },
 
-  // BỘ 4 NÚT
   controlRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15
+    marginBottom: 15,
   },
 
   modeBtn: {
@@ -794,19 +847,19 @@ subtitle: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 1
+    shadowRadius: 1,
   },
 
   modeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    textAlign: 'center'
+    textAlign: 'center',
   },
 
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15
+    marginBottom: 15,
   },
 
   actionBtn: {
@@ -816,19 +869,19 @@ subtitle: {
     justifyContent: 'center',
     padding: 14,
     borderRadius: 12,
-    marginHorizontal: 4
+    marginHorizontal: 4,
   },
 
   btnText: {
     color: 'white',
     fontWeight: 'bold',
     marginLeft: 8,
-    fontSize: 15
+    fontSize: 15,
   },
 
   thumbnailContainer: {
     marginBottom: 10,
-    height: 60
+    height: 60,
   },
 
   thumbWrap: {
@@ -840,19 +893,19 @@ subtitle: {
     overflow: 'hidden',
     position: 'relative',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   thumbImage: {
     width: '100%',
-    height: '100%'
+    height: '100%',
   },
 
   thumbOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   thumbBadge: {
@@ -861,31 +914,31 @@ subtitle: {
     right: 0,
     paddingHorizontal: 3,
     paddingVertical: 1,
-    borderBottomLeftRadius: 5
+    borderBottomLeftRadius: 5,
   },
 
   thumbBadgeText: {
     color: 'white',
     fontSize: 8,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
   },
 
   separator: {
     height: 1,
     backgroundColor: 'rgba(150,150,150,0.1)',
-    marginVertical: 8
+    marginVertical: 8,
   },
 
   historyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10
+    marginBottom: 10,
   },
 
   historyTitle: {
     fontSize: 16,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
   },
 
   historyCard: {
@@ -894,23 +947,23 @@ subtitle: {
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 8,
-    alignItems: 'center'
+    alignItems: 'center',
   },
 
   historyThumb: {
     width: 45,
     height: 45,
     borderRadius: 6,
-    marginRight: 10
+    marginRight: 10,
   },
 
   historyInfo: {
-    flex: 1
+    flex: 1,
   },
 
   historyCount: {
     fontSize: 14,
     fontWeight: 'bold',
-    marginBottom: 2
-  }
+    marginBottom: 2,
+  },
 });
