@@ -18,7 +18,10 @@
         "NSCalendarsFullAccessUsageDescription": "App cần quyền ghi lịch để lưu nhắc nhở ca làm việc.",
         "UIBackgroundModes": [
           "fetch"
-        ]
+        ],
+        "NSCameraUsageDescription": "Ứng dụng cần dùng Camera để chụp ảnh đếm thép.",
+        "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh đếm thép.",
+        "NSPhotoLibraryAddUsageDescription": "Ứng dụng cần quyền lưu ảnh kết quả đếm thép nếu cần."
       }
     },
     "android": {
@@ -41,6 +44,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ứng dụng cần truy cập thư viện ảnh để chọn ảnh đếm thép.",
+          "cameraPermission": "Ứng dụng cần dùng Camera để chụp ảnh đếm thép."
+        }
+      ],
       [
         "expo-calendar",
         {
