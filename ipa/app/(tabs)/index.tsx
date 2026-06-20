@@ -4,7 +4,6 @@ import {
   Alert,
   Dimensions,
   Image,
-  InteractionManager,
   Platform,
   ScrollView,
   StyleSheet,
@@ -264,17 +263,12 @@ export default function DemThepScreen() {
     }
   };
 
-  const runAfterUIIdle = (task: () => void) => {
-    InteractionManager.runAfterInteractions(() => {
-      setTimeout(task, 250);
-    });
-  };
-
   const pickImage = async (useCamera: boolean) => {
     if (isPickingRef.current) return;
-    isPickingRef.current = true;
-
+    
     try {
+      isPickingRef.current = true;
+
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: false,
@@ -289,7 +283,6 @@ export default function DemThepScreen() {
           const requestedPermission = await ImagePicker.requestCameraPermissionsAsync();
 
           if (!requestedPermission.granted) {
-            isPickingRef.current = false;
             Alert.alert(
               'Thiếu quyền Camera',
               'Anh hai cần cấp quyền Camera trong Cài đặt iPhone để chụp ảnh.'
@@ -300,24 +293,16 @@ export default function DemThepScreen() {
 
         await wait(300);
 
-        runAfterUIIdle(async () => {
-          try {
-            const result = await ImagePicker.launchCameraAsync(options);
-            isPickingRef.current = false;
+        const result = await ImagePicker.launchCameraAsync(options);
 
-            if (result.canceled) return;
-            if (!result.assets || result.assets.length === 0) {
-              Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
-              return;
-            }
+        if (result.canceled) return;
+        if (!result.assets || result.assets.length === 0) {
+          Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
+          return;
+        }
 
-            await handlePickedAssets(result.assets, Date.now());
-          } catch (error: any) {
-            isPickingRef.current = false;
-            console.log('Lỗi mở camera:', error);
-            Alert.alert('Lỗi mở camera', error?.message || 'Không thể mở camera.');
-          }
-        });
+        await handlePickedAssets(result.assets, Date.now());
+
       } else {
         const currentPermission = await ImagePicker.getMediaLibraryPermissionsAsync();
 
@@ -325,7 +310,6 @@ export default function DemThepScreen() {
           const requestedPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
           if (!requestedPermission.granted) {
-            isPickingRef.current = false;
             Alert.alert(
               'Thiếu quyền Ảnh',
               'Anh hai cần cấp quyền truy cập Ảnh trong Cài đặt iPhone để chọn ảnh.'
@@ -336,29 +320,22 @@ export default function DemThepScreen() {
 
         await wait(300);
 
-        runAfterUIIdle(async () => {
-          try {
-            const result = await ImagePicker.launchImageLibraryAsync(options);
-            isPickingRef.current = false;
+        const result = await ImagePicker.launchImageLibraryAsync(options);
 
-            if (result.canceled) return;
-            if (!result.assets || result.assets.length === 0) {
-              Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
-              return;
-            }
+        if (result.canceled) return;
+        if (!result.assets || result.assets.length === 0) {
+          Alert.alert('Lỗi', 'Không lấy được ảnh. Anh hai thử lại nhé.');
+          return;
+        }
 
-            await handlePickedAssets(result.assets, Date.now());
-          } catch (error: any) {
-            isPickingRef.current = false;
-            console.log('Lỗi mở thư viện ảnh:', error);
-            Alert.alert('Lỗi mở thư viện ảnh', error?.message || 'Không thể mở thư viện ảnh.');
-          }
-        });
+        await handlePickedAssets(result.assets, Date.now());
       }
     } catch (error: any) {
-      isPickingRef.current = false;
       console.log('Lỗi chọn/chụp ảnh:', error);
       Alert.alert('Lỗi chọn/chụp ảnh', error?.message || 'Không thể mở camera hoặc thư viện ảnh.');
+    } finally {
+      // Đảm bảo nút luôn nhả khóa
+      isPickingRef.current = false;
     }
   };
 
