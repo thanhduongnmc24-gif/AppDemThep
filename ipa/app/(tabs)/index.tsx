@@ -122,6 +122,8 @@ export default function DemThepScreen() {
     ensureDefaultSettings();
   }, []);
 
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   const normalizeStoredConf = (value: string | null, fallback: string) => {
     if (!value || value.trim() === '') return fallback;
 
@@ -233,8 +235,6 @@ export default function DemThepScreen() {
   };
 
   const pickImage = async (useCamera: boolean) => {
-    Alert.alert('Test', useCamera ? 'Đã bấm Chụp ảnh' : 'Đã bấm Chọn ảnh');
-
     try {
       const options: ImagePicker.ImagePickerOptions = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -244,13 +244,35 @@ export default function DemThepScreen() {
         selectionLimit: useCamera ? 1 : 10,
       };
 
-      let result;
+      let result: ImagePicker.ImagePickerResult;
 
       if (useCamera) {
-        await ImagePicker.requestCameraPermissionsAsync();
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+        if (!permission.granted) {
+          Alert.alert(
+            'Thiếu quyền Camera',
+            'Anh hai cần cấp quyền Camera trong Cài đặt iPhone để chụp ảnh.'
+          );
+          return;
+        }
+
+        // Chờ permission dialog đóng hẳn rồi mới mở camera, tránh iOS bị kẹt presentation.
+        await wait(350);
         result = await ImagePicker.launchCameraAsync(options);
       } else {
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (!permission.granted) {
+          Alert.alert(
+            'Thiếu quyền Ảnh',
+            'Anh hai cần cấp quyền truy cập Ảnh trong Cài đặt iPhone để chọn ảnh.'
+          );
+          return;
+        }
+
+        // Chờ permission dialog đóng hẳn rồi mới mở thư viện ảnh, tránh iOS bị kẹt presentation.
+        await wait(350);
         result = await ImagePicker.launchImageLibraryAsync(options);
       }
 
