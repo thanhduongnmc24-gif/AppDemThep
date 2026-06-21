@@ -263,80 +263,58 @@ export default function DemThepScreen() {
     }
   };
 
-  const pickImage = async (useCamera: boolean) => {
+ const pickImage = async (useCamera: boolean) => {
+  const options: ImagePicker.ImagePickerOptions = {
+    mediaTypes: ['images'],
+    allowsEditing: false,
+    quality: 1,
+    allowsMultipleSelection: !useCamera,
+    selectionLimit: 10,
+  };
+
+  let result;
+
   try {
-    const options: ImagePicker.ImagePickerOptions = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 1,
-      allowsMultipleSelection: !useCamera,
-      selectionLimit: useCamera ? 1 : 10,
-    };
-
-    let result: ImagePicker.ImagePickerResult;
-
     if (useCamera) {
-      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!cameraPermission.granted) {
-        Alert.alert(
-          'Chưa có quyền Camera',
-          'Anh Hai cần cấp quyền Camera trong cài đặt điện thoại thì app mới chụp ảnh được.'
-        );
-        return;
-      }
-
+      await ImagePicker.requestCameraPermissionsAsync();
       result = await ImagePicker.launchCameraAsync(options);
     } else {
-      const libraryPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!libraryPermission.granted) {
-        Alert.alert(
-          'Chưa có quyền Thư viện ảnh',
-          'Anh Hai cần cấp quyền truy cập ảnh trong cài đặt điện thoại thì app mới chọn ảnh được.'
-        );
-        return;
-      }
-
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
       result = await ImagePicker.launchImageLibraryAsync(options);
     }
 
-    if (result.canceled || !result.assets || result.assets.length === 0) {
-      return;
-    }
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const batchStartTime = Date.now();
 
-    // Tính thời gian từ lúc chọn/chụp ảnh xong
-    const batchStartTime = Date.now();
+      const initialBatch: BatchItem[] = await Promise.all(
+        result.assets.map(async (asset, index) => {
+          const resized = await resizeImage(asset.uri);
 
-    const initialBatch: BatchItem[] = await Promise.all(
-      result.assets.map(async (asset, index) => {
-        const resized = await resizeImage(asset.uri);
+          return {
+            id: Date.now().toString() + index,
+            originalImage: resized,
+            processedImage: null,
+            count: null,
+            resultImages: { v1: null, v2: null, v3: null },
+            status: 'loading',
+            processingTime: null,
+          };
+        })
+      );
 
-        return {
-          id: Date.now().toString() + index,
-          originalImage: resized,
-          processedImage: null,
-          count: null,
-          resultImages: { v1: null, v2: null, v3: null },
-          status: 'loading',
-          processingTime: null,
-        };
-      })
-    );
+      setBatch(initialBatch);
+      setActiveIndex(0);
+      setCurrentMode(1);
 
-    setBatch(initialBatch);
-    setActiveIndex(0);
-    setCurrentMode(1);
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
 
-    // Kéo màn hình về đầu để tránh trạng thái zoom/scroll cũ gây lệch
-    mainScrollRef.current?.scrollTo({ y: 0, animated: false });
-
-    for (let i = 0; i < initialBatch.length; i++) {
-      setActiveIndex(i);
-      await processSingleImage(initialBatch[i].originalImage, i, isFiltering, batchStartTime);
+      for (let i = 0; i < initialBatch.length; i++) {
+        setActiveIndex(i);
+        await processSingleImage(initialBatch[i].originalImage, i, isFiltering, batchStartTime);
+      }
     }
   } catch (error: any) {
-    console.log('Lỗi mở camera/thư viện:', error);
+    console.log('Lỗi chọn/chụp ảnh:', error);
 
     Alert.alert(
       'Lỗi mở ảnh',
